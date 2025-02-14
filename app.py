@@ -46,8 +46,8 @@ class StockAnalyzer:
         return self.feature_categories
     
     def validate_feature_combination(self, features):
-            if self.feature_categories is None:
-                raise ValueError("Features have not been classified. Run classify_features() first.")
+        if self.feature_categories is None:
+            raise ValueError("Features have not been classified. Run classify_features() first.")
             
         has_risk = any(feature in self.feature_categories['risk'] for feature in features)
         has_profitability = any(feature in self.feature_categories['profitability'] for feature in features)
