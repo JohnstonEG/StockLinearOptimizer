@@ -16,6 +16,7 @@ class StockAnalyzer:
     
     def CleanData(self, drop_column_threshold=0.1):
         df = self.df.copy()
+        #remove commas from data if present
         df = df.replace(',', '', regex=True).apply(pd.to_numeric, errors='coerce')
         max_na = len(df) * drop_column_threshold
         df = df.drop(columns=df.columns[df.isnull().sum() > max_na])
@@ -29,6 +30,7 @@ class StockAnalyzer:
     def classify_features(self):
         if self.dfx is None:
             return None
+        #defining keywords: will determine optimal way later if feasible 
         risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
         profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
         growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
@@ -46,6 +48,7 @@ class StockAnalyzer:
         return self.feature_categories
     
     def validate_feature_combination(self, features, strict_requirements=True):
+        #requires at least one of each feature when strict
         if self.feature_categories is None:
             raise ValueError("Features have not been classified. Run classify_features() first.")
         
@@ -59,6 +62,7 @@ class StockAnalyzer:
         return has_risk and has_profitability and has_growth
     
     def remove_multicollinear_features(self, threshold=5.0):
+        #uses VIF to remove weak features that are highly multicollinear  
         X = sm.add_constant(self.dfx)
         dropped_features = []
         while True:
@@ -86,7 +90,8 @@ class StockAnalyzer:
         if max_features is None:
             max_features = len(feature_names)
         max_features = min(max_features, len(feature_names))
-        
+
+        #limits model search to max features. Faster with less features chosen
         while len(current_features) < max_features:
             best_new_feature = None
             best_new_score = best_score
@@ -108,7 +113,8 @@ class StockAnalyzer:
                 
                 if any(model.pvalues[1:] >= p_value):
                     continue
-                    
+
+                #scores based on a metric. Need to include option to choose
                 score = (model.rsquared_adj if criterion == 'adj_r2' 
                         else model.aic if criterion == 'aic' 
                         else model.bic)
@@ -135,9 +141,6 @@ class StockAnalyzer:
         return self.best_model
 
     def add_performance_metrics(self):
-        """
-        Add performance metrics to help evaluate model quality.
-        """
         if self.best_model is None:
             return None
             
