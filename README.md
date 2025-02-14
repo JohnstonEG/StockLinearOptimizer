@@ -1,19 +1,5 @@
-# 🎈 Blank app template
+A linear regression optimizer for selecting a set of fundamental variables that reflect some sort type of valuation metric (e.g. P/E, P/S, P/B). 
 
-A simple Streamlit app template for you to modify!
-
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
-
-### How to run it on your own machine
-
-1. Install the requirements
-
-   ```
-   $ pip install -r requirements.txt
-   ```
-
-2. Run the app
-
-   ```
-   $ streamlit run streamlit_app.py
-   ```
+File format must be CSV and in order of:
+1.) independent variable first column
+2.) dependent variable through the rest of the columns
