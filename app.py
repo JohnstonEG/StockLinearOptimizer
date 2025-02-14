@@ -45,7 +45,7 @@ class StockAnalyzer:
                 self.feature_categories['other'].append(column)
         return self.feature_categories
     
-        def validate_feature_combination(self, features):
+    def validate_feature_combination(self, features):
             if self.feature_categories is None:
                 raise ValueError("Features have not been classified. Run classify_features() first.")
             
