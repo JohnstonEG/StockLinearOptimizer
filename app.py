@@ -30,8 +30,8 @@ class StockAnalyzer:
         if self.dfx is None:
             return None
         risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
-        profitability_keywords = ['profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
-        growth_keywords = ['growth', 'change', 'increase', '%', 'yoy', 'chg']
+        profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
+        growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
         self.feature_categories = {'risk': [], 'profitability': [], 'growth': [], 'other': []}
         for column in self.dfx.columns:
             col_lower = column.lower()
