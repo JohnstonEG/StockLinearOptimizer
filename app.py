@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import statsmodels.api as sm
-import itertools
+import itertools as it 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 class StockAnalyzer:
@@ -45,9 +45,19 @@ class StockAnalyzer:
                 self.feature_categories['other'].append(column)
         return self.feature_categories
     
-    def validate_feature_combination(self, features):
+    def validate_feature_combination(self, features, strict_requirements=True):
+        """
+        Validate feature combination based on strict or relaxed requirements.
+        
+        Parameters:
+        - features: list of features to validate
+        - strict_requirements: if True, requires at least one feature from each category
+        """
         if self.feature_categories is None:
             raise ValueError("Features have not been classified. Run classify_features() first.")
+        
+        if not strict_requirements:
+            return True  # Accept any combination when not strict
             
         has_risk = any(feature in self.feature_categories['risk'] for feature in features)
         has_profitability = any(feature in self.feature_categories['profitability'] for feature in features)
@@ -71,27 +81,106 @@ class StockAnalyzer:
         self.dfx = X.drop(columns="const", errors="ignore")
         return dropped_features
 
-    def find_best_model(self, criterion='adj_r2', p_value=0.10):
+    def find_best_model(self, criterion='adj_r2', p_value=0.10, max_features=None, strict_requirements=True):
+        """
+        Find the best model using forward selection with optional strict requirements.
+        
+        Parameters:
+        - criterion: 'adj_r2', 'aic', or 'bic'
+        - p_value: maximum p-value threshold for features
+        - max_features: maximum number of features to include in the model
+        - strict_requirements: if True, requires features from all categories
+        """
         if self.dfx is None or self.dfy is None:
             return None
+            
         X = sm.add_constant(self.dfx)
-        feature_names = X.columns[1:]
-        best_model, best_features, best_score = None, None, float('-inf') if criterion == 'adj_r2' else float('inf')
-        for r in range(3, len(feature_names) + 1):
-            for subset in itertools.combinations(feature_names, r):
-                X_subset = X[['const'] + list(subset)]
+        feature_names = list(X.columns[1:])
+        current_features = []
+        best_score = float('-inf') if criterion == 'adj_r2' else float('inf')
+        
+        if max_features is None:
+            max_features = len(feature_names)
+        max_features = min(max_features, len(feature_names))
+        
+        while len(current_features) < max_features:
+            best_new_feature = None
+            best_new_score = best_score
+            
+            for feature in feature_names:
+                if feature in current_features:
+                    continue
+                    
+                test_features = current_features + [feature]
+                
+                # Only apply category validation if strict requirements are enabled
+                if (strict_requirements and 
+                    len(test_features) >= 3 and 
+                    not self.validate_feature_combination(test_features, strict_requirements)):
+                    continue
+                    
+                X_subset = X[['const'] + test_features]
                 model = sm.OLS(self.dfy, X_subset.astype(float)).fit()
-                if all(model.pvalues[1:] < p_value):  
-                    score = model.rsquared_adj if criterion == 'adj_r2' else model.aic if criterion == 'aic' else model.bic
-                    if (criterion == 'adj_r2' and score > best_score) or (criterion in ['aic', 'bic'] and score < best_score):
-                        best_model, best_features, best_score = model, subset, score
-        self.best_model, self.best_features, self.best_score = best_model, best_features, best_score
-        return best_model
+                
+                if any(model.pvalues[1:] >= p_value):
+                    continue
+                    
+                score = (model.rsquared_adj if criterion == 'adj_r2' 
+                        else model.aic if criterion == 'aic' 
+                        else model.bic)
+                
+                if ((criterion == 'adj_r2' and score > best_new_score) or 
+                    (criterion in ['aic', 'bic'] and score < best_new_score)):
+                    best_new_score = score
+                    best_new_feature = feature
+                    
+            if best_new_feature is None:
+                break
+                
+            current_features.append(best_new_feature)
+            best_score = best_new_score
+            
+            X_final = X[['const'] + current_features]
+            best_model = sm.OLS(self.dfy, X_final.astype(float)).fit()
+            
+        # Remove minimum feature requirement when not strict
+        self.best_model = best_model if (not strict_requirements or len(current_features) >= 3) else None
+        self.best_features = current_features
+        self.best_score = best_score
+        
+        return self.best_model
+
+    def add_performance_metrics(self):
+        """
+        Add performance metrics to help evaluate model quality.
+        """
+        if self.best_model is None:
+            return None
+            
+        # Calculate metrics
+        predictions = self.best_model.predict(sm.add_constant(self.dfx[list(self.best_features)]))
+        residuals = self.dfy - predictions
+        
+        metrics = {
+            'R-squared': self.best_model.rsquared,
+            'Adjusted R-squared': self.best_model.rsquared_adj,
+            'AIC': self.best_model.aic,
+            'BIC': self.best_model.bic,
+            'Mean Absolute Error': abs(residuals).mean(),
+            'Root Mean Squared Error': (residuals ** 2).mean() ** 0.5,
+            'Number of Features': len(self.best_features)
+        }
+        
+        return metrics
 
 st.title("Stock Analyzer App")
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-p_value = st.slider("Select p-value threshold", 0.001, 0.5, 0.10)
-drop_threshold = st.slider("Max % of column NA before drop", 0.01, 0.5, 0.1)
+p_value = st.slider("Select p-value threshold", 0.001, 0.999, step=0.001)
+drop_threshold = st.slider("Max % of column NA before drop", 0.001, 0.999, step=0.01)
+max_features = st.slider("Maximum number of features", 3, 15, 10)
+strict_requirements = st.checkbox("Strict Category Requirements", value=True, 
+    help="If checked, requires at least one feature from each category (Risk, Profitability, Growth)")
+    
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
     analyzer = StockAnalyzer(df)
@@ -99,11 +188,13 @@ if uploaded_file:
     if dfx is not None:
         feature_categories = analyzer.classify_features()
         dropped_features = analyzer.remove_multicollinear_features()
-        best_model = analyzer.find_best_model(p_value=p_value)
+        best_model = analyzer.find_best_model(p_value=p_value, max_features=max_features, strict_requirements=strict_requirements)
         st.write("### Feature Categories", feature_categories)
         st.write("### Removed Multicollinear Features", dropped_features)
         if best_model:
             st.write("### Best Model Summary")
             st.text(best_model.summary())
         else:
-            st.write("No valid model found.")
+            st.write("No valid model found. Try adjusting the p-value or increasing max features")
+    else:
+        st.write("No valid data found. Try adjusting the drop threshold")
