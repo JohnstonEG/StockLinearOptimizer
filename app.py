@@ -46,13 +46,6 @@ class StockAnalyzer:
         return self.feature_categories
     
     def validate_feature_combination(self, features, strict_requirements=True):
-        """
-        Validate feature combination based on strict or relaxed requirements.
-        
-        Parameters:
-        - features: list of features to validate
-        - strict_requirements: if True, requires at least one feature from each category
-        """
         if self.feature_categories is None:
             raise ValueError("Features have not been classified. Run classify_features() first.")
         
@@ -82,15 +75,6 @@ class StockAnalyzer:
         return dropped_features
 
     def find_best_model(self, criterion='adj_r2', p_value=0.10, max_features=None, strict_requirements=True):
-        """
-        Find the best model using forward selection with optional strict requirements.
-        
-        Parameters:
-        - criterion: 'adj_r2', 'aic', or 'bic'
-        - p_value: maximum p-value threshold for features
-        - max_features: maximum number of features to include in the model
-        - strict_requirements: if True, requires features from all categories
-        """
         if self.dfx is None or self.dfy is None:
             return None
             
