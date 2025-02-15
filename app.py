@@ -190,7 +190,7 @@ def render_feature_management(categories):
     st.write("### Manage Feature Categories")
     st.markdown("Select a new category for any feature you want to reclassify.")
 
-    cols = st.columns(5)  # Adjusted for the new "discard" category
+    cols = st.columns([1, 1.5, 1, 1, 1])  # Adjusted for the new "discard" category
     new_categories = {
         'risk': categories['risk'].copy(),
         'profitability': categories['profitability'].copy(),
@@ -209,8 +209,9 @@ def render_feature_management(categories):
                     key=f"{category}_{feature}"
                 )
                 if target_category != 'Keep Here':
-                    new_categories[category].remove(feature)
-                    new_categories[target_category].append(feature)
+                    if feature in new_categories[category]:
+                        new_categories[category].remove(feature)
+                        new_categories[target_category].append(feature)
 
     if st.button("Update Categories"):
         st.session_state.feature_categories = new_categories
@@ -228,6 +229,11 @@ strict_requirements = st.checkbox("Strict Category Requirements", value=True,
     help="If checked, requires at least one feature from each category (Risk, Profitability, Growth)")
     
 if uploaded_file:
+    if ('uploaded_file_name' not in st.session_state or 
+        st.session_state.uploaded_file_name != uploaded_file.name):
+        st.session_state.feature_categories = None  # Reset only if the file is new
+        st.session_state.uploaded_file_name = uploaded_file.name
+
     df = pd.read_csv(uploaded_file)
     analyzer = StockAnalyzer(df)
     dfx, dfy = analyzer.CleanData(drop_threshold)
