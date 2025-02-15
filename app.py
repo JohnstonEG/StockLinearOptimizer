@@ -330,6 +330,6 @@ if uploaded_file:
             st.dataframe(corr_matrix)
 
         else:
-            st.write("No valid model found. Try adjusting the p-value or increasing max features")
+            st.write("No valid model found. Try adjusting the thresholds or feature categories")
     else:
-        st.write("No valid data found. Try adjusting the drop threshold")
+        st.write("No valid data found. Try adjusting the drop threshold or upload a different file")
