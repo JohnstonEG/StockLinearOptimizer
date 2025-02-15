@@ -30,15 +30,13 @@ class StockAnalyzer:
         return self.dfx, self.dfy
 
     def classify_features(self):
-        if self.dfx is None:
-            return None
         if st.session_state.feature_categories is None:
             risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
             profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
             growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
             
             categories = {'risk': [], 'profitability': [], 'growth': [], 'other': [], 'discard': []}
-            for column in self.dfx.columns:
+            for column in self.df.columns:
                 col_lower = column.lower()
                 if any(keyword in col_lower for keyword in risk_keywords):
                     categories['risk'].append(column)
