@@ -12,6 +12,10 @@ class StockAnalyzer:
         self.best_features = None
         self.best_score = None
         self.feature_categories = None
+
+        # Initialize session state for feature categories if not exists
+        if 'feature_categories' not in st.session_state:
+            st.session_state.feature_categories = None
     
     def CleanData(self, drop_column_threshold=0.1):
         df = self.df.copy()
@@ -28,20 +32,30 @@ class StockAnalyzer:
     def classify_features(self):
         if self.dfx is None:
             return None
-        risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
-        profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
-        growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
-        self.feature_categories = {'risk': [], 'profitability': [], 'growth': [], 'other': []}
-        for column in self.dfx.columns:
-            col_lower = column.lower()
-            if any(keyword in col_lower for keyword in risk_keywords):
-                self.feature_categories['risk'].append(column)
-            elif any(keyword in col_lower for keyword in profitability_keywords):
-                self.feature_categories['profitability'].append(column)
-            elif any(keyword in col_lower for keyword in growth_keywords):
-                self.feature_categories['growth'].append(column)
-            else:
-                self.feature_categories['other'].append(column)
+        if st.session_state.feature_categories is None:
+            risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
+            profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
+            growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
+            
+            categories = {'risk': [], 'profitability': [], 'growth': [], 'other': [], 'discard': []}
+            for column in self.dfx.columns:
+                col_lower = column.lower()
+                if any(keyword in col_lower for keyword in risk_keywords):
+                    categories['risk'].append(column)
+                elif any(keyword in col_lower for keyword in profitability_keywords):
+                    categories['profitability'].append(column)
+                elif any(keyword in col_lower for keyword in growth_keywords):
+                    categories['growth'].append(column)
+                else:
+                    categories['other'].append(column)
+            
+            st.session_state.feature_categories = categories
+        else:
+            # Ensure the 'discard' key is present
+            if 'discard' not in st.session_state.feature_categories:
+                st.session_state.feature_categories['discard'] = []
+                
+        self.feature_categories = st.session_state.feature_categories
         return self.feature_categories
     
     def validate_feature_combination(self, features, strict_requirements=True):
@@ -58,8 +72,10 @@ class StockAnalyzer:
         return has_risk and has_profitability and has_growth
     
     def remove_multicollinear_features(self, threshold=5.0):
-        X = sm.add_constant(self.dfx)
+        valid_features = [f for f in self.dfx.columns if f not in self.feature_categories['discard']]
+        X = sm.add_constant(self.dfx[valid_features])
         dropped_features = []
+        
         while True:
             vif_data = pd.DataFrame({'Feature': X.columns, 'VIF': [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]})
             high_vif = vif_data[vif_data["VIF"] > threshold]
@@ -70,6 +86,7 @@ class StockAnalyzer:
                 break
             X = X.drop(columns=[feature_to_drop])
             dropped_features.append(feature_to_drop)
+
         self.dfx = X.drop(columns="const", errors="ignore")
         return dropped_features
 
@@ -77,11 +94,12 @@ class StockAnalyzer:
         if self.dfx is None or self.dfy is None:
             return None
             
-        X = sm.add_constant(self.dfx)
+        valid_features = [f for f in self.dfx.columns if f not in self.feature_categories['discard']]
+        X = sm.add_constant(self.dfx[valid_features])
         feature_names = list(X.columns[1:])
         current_features = []
         best_score = float('-inf') if criterion == 'adj_r2' else float('inf')
-        
+
         if max_features is None:
             max_features = len(feature_names)
         max_features = min(max_features, len(feature_names))
@@ -96,7 +114,6 @@ class StockAnalyzer:
                     
                 test_features = current_features + [feature]
                 
-                # Only apply category validation if strict requirements are enabled
                 if (strict_requirements and 
                     len(test_features) >= 3 and 
                     not self.validate_feature_combination(test_features, strict_requirements)):
@@ -126,12 +143,12 @@ class StockAnalyzer:
             X_final = X[['const'] + current_features]
             best_model = sm.OLS(self.dfy, X_final.astype(float)).fit()
             
-        # Remove minimum feature requirement when not strict
         self.best_model = best_model if (not strict_requirements or len(current_features) >= 3) else None
         self.best_features = current_features
         self.best_score = best_score
         
         return self.best_model
+
 
     def add_performance_metrics(self):
         if self.best_model is None:
@@ -168,6 +185,37 @@ By selecting appropriate financial metrics, users can analyze how different fact
 
 ---
 """)
+
+def render_feature_management(categories):
+    st.write("### Manage Feature Categories")
+    st.markdown("Select a new category for any feature you want to reclassify.")
+
+    cols = st.columns(5)  # Adjusted for the new "discard" category
+    new_categories = {
+        'risk': categories['risk'].copy(),
+        'profitability': categories['profitability'].copy(),
+        'growth': categories['growth'].copy(),
+        'other': categories['other'].copy(),
+        'discard': categories['discard'].copy()
+    }
+
+    for idx, (category, features) in enumerate(categories.items()):
+        with cols[idx]:
+            st.subheader(category.title())
+            for feature in features:
+                target_category = st.selectbox(
+                    f"Move {feature}",
+                    options=['Keep Here'] + [cat for cat in categories.keys() if cat != category],
+                    key=f"{category}_{feature}"
+                )
+                if target_category != 'Keep Here':
+                    new_categories[category].remove(feature)
+                    new_categories[target_category].append(feature)
+
+    if st.button("Update Categories"):
+        st.session_state.feature_categories = new_categories
+        st.rerun()
+        
 uploaded_file = st.file_uploader("Upload CSV", type=["csv"],
     help="Upload a CSV file in the format: column 1 = dependent variable, columns 2+ = independent variables")
 p_value = st.slider("Select p-value threshold", 0.001, 0.999, step=0.001,
@@ -185,13 +233,34 @@ if uploaded_file:
     dfx, dfy = analyzer.CleanData(drop_threshold)
     if dfx is not None:
         feature_categories = analyzer.classify_features()
+        
+        # Render feature management UI
+        render_feature_management(feature_categories)
+        
         dropped_features = analyzer.remove_multicollinear_features()
         best_model = analyzer.find_best_model(p_value=p_value, max_features=max_features, strict_requirements=strict_requirements)
-        st.write("### Feature Categories", feature_categories)
-        st.write("### Removed Multicollinear Features", dropped_features)
+        
+        # Show dropped features and model results
+        st.write("### Removed Multicollinear Features")
+        st.write(dropped_features)
+        
         if best_model:
-            st.write("### Best Model Summary")
-            st.text(best_model.summary())
+
+            # Get performance metrics as a dictionary
+            metrics = analyzer.add_performance_metrics()
+            
+            # Convert the dictionary to a DataFrame for display
+            metrics_df = pd.DataFrame(metrics.items(), columns=["Metric", "Value"])
+            
+            # Display the performance metrics table
+            st.write("### Model Performance Metrics")
+            st.table(metrics_df)
+            st.write("### Best Model Coefficients")
+            # Use summary2() to get a cleaner table representation
+            summary2 = best_model.summary2()
+            # The coefficients table is typically the second table in summary2()
+            coef_table = summary2.tables[1]
+            st.dataframe(coef_table)
         else:
             st.write("No valid model found. Try adjusting the p-value or increasing max features")
     else:
