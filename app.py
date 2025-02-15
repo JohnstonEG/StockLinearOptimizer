@@ -34,6 +34,8 @@ class StockAnalyzer:
             risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
             profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
             growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
+
+            df = df.drop(columns=df.columns[0])
             
             categories = {'risk': [], 'profitability': [], 'growth': [], 'other': [], 'discard': []}
             for column in self.df.columns:
