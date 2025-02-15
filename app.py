@@ -251,22 +251,55 @@ if uploaded_file:
         st.write(dropped_features)
         
         if best_model:
+            # Construct Regression Equation
+            coefficients = best_model.params
+            dependent_var = df.columns[0]  # Assuming first column is the dependent variable
+            independent_vars = list(coefficients.index)[1:]  # Exclude Intercept
 
-            # Get performance metrics as a dictionary
+            # Build full equation string
+            full_equation = f"{dependent_var} = {coefficients[0]:.2f}"
+            for feature in independent_vars:
+                coef = coefficients[feature]
+                sign = "+" if coef >= 0 else "-"
+                full_equation += f" {sign} {abs(coef):.2f} * {feature}"
+
+            # Build shortened equation with ellipsis
+            short_equation = f"{dependent_var} = {coefficients[0]:.2f}"
+            for feature in independent_vars[:2]:  # Show only first 3 terms
+                coef = coefficients[feature]
+                sign = "+" if coef >= 0 else "-"
+                short_equation += f" {sign} {abs(coef):.2f} * {feature}"
+            
+            if len(independent_vars) > 3:
+                short_equation += " + ..."
+
+            # Display Shortened Equation
+            st.write("### Regression Equation")
+            st.latex(short_equation)
+
+            # Expandable Full Equation
+            with st.expander("See full equation"):
+                st.latex(full_equation)
+
+            #Get performance metrics as a dictionary
             metrics = analyzer.add_performance_metrics()
             
-            # Convert the dictionary to a DataFrame for display
+            #Convert the dictionary to a DataFrame for display
             metrics_df = pd.DataFrame(metrics.items(), columns=["Metric", "Value"])
             
-            # Display the performance metrics table
+            #Display the performance metrics table
             st.write("### Model Performance Metrics")
             st.table(metrics_df)
             st.write("### Best Model Coefficients")
-            # Use summary2() to get a cleaner table representation
             summary2 = best_model.summary2()
-            # The coefficients table is typically the second table in summary2()
             coef_table = summary2.tables[1]
             st.dataframe(coef_table)
+
+            #Display Correlation Matrix
+            st.write("### Correlation Matrix")
+            corr_matrix = dfx.corr()
+            st.dataframe(corr_matrix)
+
         else:
             st.write("No valid model found. Try adjusting the p-value or increasing max features")
     else:
