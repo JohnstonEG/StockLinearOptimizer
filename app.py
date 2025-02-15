@@ -35,10 +35,10 @@ class StockAnalyzer:
             profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
             growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
 
-            df = df.drop(columns=df.columns[0])
-            
+            df = self.df.iloc[:, 1:]     
+
             categories = {'risk': [], 'profitability': [], 'growth': [], 'other': [], 'discard': []}
-            for column in self.df.columns:
+            for column in df.columns:
                 col_lower = column.lower()
                 if any(keyword in col_lower for keyword in risk_keywords):
                     categories['risk'].append(column)
