@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import statsmodels.api as sm
-import itertools as it 
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 class StockAnalyzer:
@@ -16,7 +15,6 @@ class StockAnalyzer:
     
     def CleanData(self, drop_column_threshold=0.1):
         df = self.df.copy()
-        #remove commas from data if present
         df = df.replace(',', '', regex=True).apply(pd.to_numeric, errors='coerce')
         max_na = len(df) * drop_column_threshold
         df = df.drop(columns=df.columns[df.isnull().sum() > max_na])
@@ -30,7 +28,6 @@ class StockAnalyzer:
     def classify_features(self):
         if self.dfx is None:
             return None
-        #defining keywords: will determine optimal way later if feasible 
         risk_keywords = ['risk', 'debt', 'beta', 'volatility', 'leverage']
         profitability_keywords = ['Return', 'profit', 'margin', 'nim', 'income', 'earnings', 'eps', 'roe', 'roa']
         growth_keywords = ['Rate', 'growth', 'change', 'increase', '%', 'yoy', 'chg']
@@ -48,7 +45,6 @@ class StockAnalyzer:
         return self.feature_categories
     
     def validate_feature_combination(self, features, strict_requirements=True):
-        #requires at least one of each feature when strict
         if self.feature_categories is None:
             raise ValueError("Features have not been classified. Run classify_features() first.")
         
@@ -62,7 +58,6 @@ class StockAnalyzer:
         return has_risk and has_profitability and has_growth
     
     def remove_multicollinear_features(self, threshold=5.0):
-        #uses VIF to remove weak features that are highly multicollinear  
         X = sm.add_constant(self.dfx)
         dropped_features = []
         while True:
@@ -90,8 +85,7 @@ class StockAnalyzer:
         if max_features is None:
             max_features = len(feature_names)
         max_features = min(max_features, len(feature_names))
-
-        #limits model search to max features. Faster with less features chosen
+        
         while len(current_features) < max_features:
             best_new_feature = None
             best_new_score = best_score
@@ -113,8 +107,7 @@ class StockAnalyzer:
                 
                 if any(model.pvalues[1:] >= p_value):
                     continue
-
-                #scores based on a metric. Need to include option to choose
+                    
                 score = (model.rsquared_adj if criterion == 'adj_r2' 
                         else model.aic if criterion == 'aic' 
                         else model.bic)
@@ -160,11 +153,29 @@ class StockAnalyzer:
         
         return metrics
 
-st.title("Stock Analyzer App")
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-p_value = st.slider("Select p-value threshold", 0.001, 0.999, step=0.001)
-drop_threshold = st.slider("Max % of column NA before drop", 0.001, 0.999, step=0.01)
-max_features = st.slider("Maximum number of features", 3, 15, 10)
+st.title("Stock Linear Regression Analyzer")
+st.markdown("""
+## **Project Goal**
+My goal with this project is to create a tool that helps users filter and test variables they consider most relevant in their stock analysis.  
+By selecting appropriate financial metrics, users can analyze how different factors—such as growth, profitability, and risk—affect a valuation measure like **P/E ratio, P/B ratio, or another dependent variable**.
+
+## **How It Works**
+1. **Upload a CSV file** with stock-related data.
+2. **Select a valuation metric** (dependent variable) such as P/E ratio.
+3. **Filter financial indicators** (independent variables/features) across **growth, profitability, and risk** categories.
+4. **Adjust filtering settings** (p-value threshold, NA column drop percentage).
+5. **Identify the best model**, removing multicollinearity and selecting variables with statistical significance.
+
+---
+""")
+uploaded_file = st.file_uploader("Upload CSV", type=["csv"],
+    help="Upload a CSV file in the format: column 1 = dependent variable, columns 2+ = independent variables")
+p_value = st.slider("Select p-value threshold", 0.001, 0.999, step=0.001,
+    help="Maximum p-value acceptable for feature selection")
+drop_threshold = st.slider("Max % of column NA before drop", 0.001, 0.999, step=0.01,
+    help="Maximum percentage of NA values in a column before dropping the column")
+max_features = st.slider("Maximum number of features", 3, 15, 10,
+    help="Maximum number of features to include in the model")
 strict_requirements = st.checkbox("Strict Category Requirements", value=True, 
     help="If checked, requires at least one feature from each category (Risk, Profitability, Growth)")
     
