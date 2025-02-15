@@ -276,10 +276,6 @@ if uploaded_file:
 
         best_model = analyzer.find_best_model(p_value=p_value, max_features=max_features, strict_requirements=strict_requirements)
         
-        # Show dropped features and model results
-        st.write("### Removed Multicollinear Features")
-        st.write(dropped_features)
-        
         if best_model:
             # Construct Regression Equation
             coefficients = best_model.params
