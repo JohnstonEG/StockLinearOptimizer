@@ -71,7 +71,7 @@ class StockAnalyzer:
         
         return has_risk and has_profitability and has_growth
     
-    def remove_multicollinear_features(self, threshold=5.0):
+    def remove_multicollinear_features(self, threshold=3):
         valid_features = [f for f in self.dfx.columns if f not in self.feature_categories['discard']]
         X = sm.add_constant(self.dfx[valid_features])
         dropped_features = []
@@ -81,11 +81,13 @@ class StockAnalyzer:
             high_vif = vif_data[vif_data["VIF"] > threshold]
             if high_vif.empty:
                 break
+            high_vif_sorted = high_vif.sort_values("VIF", ascending=False)
             feature_to_drop = high_vif.sort_values("VIF", ascending=False).iloc[0]["Feature"]
+            vif_value = high_vif_sorted.iloc[0]["VIF"]
             if feature_to_drop == "const":
                 break
             X = X.drop(columns=[feature_to_drop])
-            dropped_features.append(feature_to_drop)
+            dropped_features.append((feature_to_drop, vif_value))
 
         self.dfx = X.drop(columns="const", errors="ignore")
         return dropped_features
@@ -186,6 +188,23 @@ By selecting appropriate financial metrics, users can analyze how different fact
 ---
 """)
 
+def escape_latex(s):
+    replacements = {
+        "&": "\\&",
+        "%": "\\%",
+        "$": "\\$",
+        "#": "\\#",
+        "_": "\\_",
+        "{": "\\{",
+        "}": "\\}",
+        "~": "\\textasciitilde{}",
+        "^": "\\textasciicircum{}",
+    }
+    for key, val in replacements.items():
+        s = s.replace(key, val)
+    return s
+
+
 def render_feature_management(categories):
     st.write("### Manage Feature Categories")
     st.markdown("Select a new category for any feature you want to reclassify.")
@@ -223,6 +242,8 @@ p_value = st.slider("Select p-value threshold", 0.001, 0.999, value=0.1, step=0.
     help="Maximum p-value acceptable for feature selection")
 drop_threshold = st.slider("Max % of column NA before drop", 0.001, .999, value=.2, step=0.01,
     help="Maximum percentage of NA values in a column before dropping the column")
+vif_threshold = st.slider("VIF Threshold", 1.0, 10.0, value=3.0, step=0.01,
+    help="Maximum Variance Inflation Factor (VIF) allowed before dropping a feature")
 max_features = st.slider("Maximum number of features", 3, 15, 10,
     help="Maximum number of features to include in the model")
 strict_requirements = st.checkbox("Strict Category Requirements", value=True, 
@@ -243,7 +264,15 @@ if uploaded_file:
         # Render feature management UI
         render_feature_management(feature_categories)
         
-        dropped_features = analyzer.remove_multicollinear_features()
+        dropped_features = analyzer.remove_multicollinear_features(vif_threshold)
+        if dropped_features:
+            # Convert list of tuples into a DataFrame for display
+            dropped_df = pd.DataFrame(dropped_features, columns=["Feature", "VIF Score"])
+            st.write("### Removed Multicollinear Features")
+            st.dataframe(dropped_df)
+        else:
+            st.write("No features were removed due to multicollinearity.")
+
         best_model = analyzer.find_best_model(p_value=p_value, max_features=max_features, strict_requirements=strict_requirements)
         
         # Show dropped features and model results
@@ -257,18 +286,21 @@ if uploaded_file:
             independent_vars = list(coefficients.index)[1:]  # Exclude Intercept
 
             # Build full equation string
-            full_equation = f"{dependent_var} = {coefficients[0]:.2f}"
+            dependent_var = escape_latex(df.columns[0])
+            full_equation = f"\\textbf{{\\text{{{dependent_var}}}}} = {coefficients[0]:.2f}"
             for feature in independent_vars:
                 coef = coefficients[feature]
                 sign = "+" if coef >= 0 else "-"
-                full_equation += f" {sign} {abs(coef):.2f} * {feature}"
+                # Wrap the feature name in \text{} and escape it
+                escaped_feature = escape_latex(feature)
+                full_equation += f" {sign} {abs(coef):.2f} \\cdot \\textbf{{\\text{{{escaped_feature}}}}}"
 
             # Build shortened equation with ellipsis
-            short_equation = f"{dependent_var} = {coefficients[0]:.2f}"
+            short_equation = f"\\textbf{{\\text{{{dependent_var}}}}} = {coefficients[0]:.2f}"
             for feature in independent_vars[:2]:  # Show only first 3 terms
                 coef = coefficients[feature]
                 sign = "+" if coef >= 0 else "-"
-                short_equation += f" {sign} {abs(coef):.2f} * {feature}"
+                short_equation += f" {sign} {abs(coef):.2f} \\cdot \\textbf{{\\text{{{feature}}}}}"
             
             if len(independent_vars) > 3:
                 short_equation += " + ..."
