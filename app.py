@@ -221,7 +221,7 @@ uploaded_file = st.file_uploader("Upload CSV", type=["csv"],
     help="Upload a CSV file in the format: column 1 = dependent variable, columns 2+ = independent variables")
 p_value = st.slider("Select p-value threshold", 0.001, 0.999, value=0.1, step=0.001,
     help="Maximum p-value acceptable for feature selection")
-drop_threshold = st.slider("Max % of column NA before drop", 0.001, 0.999, value=1, step=0.01,
+drop_threshold = st.slider("Max % of column NA before drop", 0.001, 1, value=1, step=0.01,
     help="Maximum percentage of NA values in a column before dropping the column")
 max_features = st.slider("Maximum number of features", 3, 15, 10,
     help="Maximum number of features to include in the model")
