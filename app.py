@@ -184,6 +184,7 @@ By selecting appropriate financial metrics, users can analyze how different fact
 3. **Filter financial indicators** (independent variables/features) across **growth, profitability, and risk** categories.
 4. **Adjust filtering settings** (p-value threshold, NA column drop percentage).
 5. **Identify the best model**, removing multicollinearity and selecting variables with statistical significance.
+6. **Analyze the results** with a regression equation, performance metrics, and correlation matrix.
 
 ---
 """)
@@ -241,9 +242,9 @@ uploaded_file = st.file_uploader("Upload CSV", type=["csv"],
 p_value = st.slider("Select p-value threshold", 0.001, 0.999, value=0.1, step=0.001,
     help="Maximum p-value acceptable for feature selection")
 drop_threshold = st.slider("Max % of column NA before drop", 0.001, .999, value=.2, step=0.01,
-    help="Maximum percentage of NA values in a column before dropping the column")
+    help="Maximum percentage of NA values in a column before dropping the column. Higher values are more lenient, but will remove more rows/firms")
 vif_threshold = st.slider("VIF Threshold", 1.0, 10.0, value=3.0, step=0.01,
-    help="Maximum Variance Inflation Factor (VIF) allowed before dropping a feature")
+    help="Maximum Variance Inflation Factor (VIF) allowed before dropping a feature. 1 is very strict, 10 is extremely lenient")
 max_features = st.slider("Maximum number of features", 3, 15, 10,
     help="Maximum number of features to include in the model")
 strict_requirements = st.checkbox("Strict Category Requirements", value=True, 
