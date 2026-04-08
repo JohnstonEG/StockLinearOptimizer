@@ -187,7 +187,7 @@ class StockAnalyzer:
             return "No model found. Run find_best_model() first."
 
 # %%
-analyzer = StockAnalyzer("C:/Users/slick/Downloads/Relative Eval.csv")
+analyzer = StockAnalyzer("Pathway")
 #defines what columns to drop if their NaNs are greater than X% of total rows/companies
 analyzer.CleanData(drop_column_threshold = 0.10)
 analyzer.classify_features()
