@@ -3,3 +3,5 @@ A linear regression optimizer for selecting a set of fundamental variables that 
 File format must be CSV and in order of:
 1.) independent variable first column
 2.) dependent variable through the rest of the columns
+
+Link to website: https://linearoptimizerstocks.streamlit.app/
